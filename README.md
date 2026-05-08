@@ -1,3 +1,65 @@
+
+
+## Как запускать
+
+1. Поднять сервисы и заново инициализировать данные:
+
+   ```powershell
+   docker compose down -v
+   docker compose up -d
+   ```
+
+2. Запустить ETL из исходных таблиц `raw.mock_data` в модель `dwh` внутри ClickHouse:
+
+   ```powershell
+   docker compose exec -T trino trino --file /sql/01_build_model.sql
+   ```
+
+3. Построить 6 витрин в ClickHouse:
+
+   ```powershell
+   docker compose exec -T trino trino --file /sql/02_build_reports.sql
+   ```
+
+4. Быстрая проверка количества строк и топа продуктов:
+
+   ```powershell
+   docker compose exec -T trino trino --file /sql/03_check_result.sql
+   ```
+
+Можно запустить все одной командой:
+
+```bash
+bash scripts/run-all.sh
+```
+
+Что поднимется:
+- `PostgreSQL` на `localhost:15432`, база `lab`, пользователь `lab`, пароль `lab`;
+- `ClickHouse` на `localhost:18123` и `localhost:19000`, пользователь `trino`, пароль `trino`;
+- `Trino` на `localhost:18080`.
+
+Важно:
+- в `PostgreSQL` исходные данные лежат в `raw.mock_data` - 5000 строк;
+- в `ClickHouse` исходные данные лежат в `raw.mock_data` - 5000 строк;
+- в `ClickHouse` модель звезды лежит в схеме `dwh`;
+- в `ClickHouse` витрины лежат в схеме `reports`.
+
+Реализовано:
+- все 10 CSV подключены к контейнерам и загружаются автоматически;
+- Trino читает данные из PostgreSQL и ClickHouse;
+- Trino создает в ClickHouse таблицы `dwh.stg_sales`, `dwh.fact_sales`, `dwh.dim_customer`, `dwh.dim_seller`, `dwh.dim_product`, `dwh.dim_store`, `dwh.dim_supplier`, `dwh.dim_date`;
+- Trino создает 6 витрин `reports.report_*` в ClickHouse.
+
+Витрины:
+- `report_product_sales`: продажи по продуктам и категориям, количество проданных единиц, выручка, выручка категории, средний рейтинг, отзывы, ранг продукта;
+- `report_customer_sales`: сумма покупок клиента, количество заказов, средний чек, страна клиента, количество клиентов в стране, ранг клиента;
+- `report_time_sales`: продажи по месяцам, месячная выручка, средний заказ, изменение выручки к прошлому месяцу, годовая выручка;
+- `report_store_sales`: продажи по магазинам с разбивкой по городам и странам, выручка локации, выручка города/страны, средний чек, ранг магазина;
+- `report_supplier_sales`: продажи по поставщикам с разбивкой по странам, выручка страны, общая выручка поставщика, средняя цена товара, ранг поставщика;
+- `report_product_quality`: рейтинг и отзывы по продуктам, проданные единицы, выручка, корреляция рейтинга с продажами, ранги по рейтингу и отзывам.
+
+---
+
 # BigDataTrino
 Анализ больших данных - лабораторная работа №4 - ETL реализованный с помощью Trino
 
